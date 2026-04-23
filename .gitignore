@@ -1,0 +1,20 @@
+# Claude
+.claude/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Dependencies (if you ever add any)
+node_modules/
+
+# Logs
+*.log
+

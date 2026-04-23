@@ -1,0 +1,1228 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>XML Inspector</title>
+  <style>
+    :root {
+      --bg: #f5f5f5;
+      --surface: #ffffff;
+      --surface2: #f0f0f0;
+      --border: #ddd;
+      --text: #1a1a1a;
+      --text-muted: #666;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --tag: #0f5499;
+      --attr-name: #7c3aed;
+      --attr-value: #059669;
+      --text-node: #1a1a1a;
+      --comment: #6b7280;
+      --pi: #b45309;
+      --cdata: #0891b2;
+      --collapse-btn: #9ca3af;
+      --collapse-btn-hover: #6b7280;
+      --search-highlight: #fef08a;
+      --search-highlight-active: #fbbf24;
+      --shadow: 0 1px 3px rgba(0,0,0,0.1);
+      --tab-active-bg: #fff;
+      --tab-inactive-bg: #e5e7eb;
+      --error: #dc2626;
+      --success: #16a34a;
+    }
+    [data-theme="dark"] {
+      --bg: #0f0f0f;
+      --surface: #1a1a1a;
+      --surface2: #242424;
+      --border: #333;
+      --text: #e5e5e5;
+      --text-muted: #9ca3af;
+      --accent: #3b82f6;
+      --accent-hover: #60a5fa;
+      --tag: #60a5fa;
+      --attr-name: #a78bfa;
+      --attr-value: #34d399;
+      --text-node: #e5e5e5;
+      --comment: #6b7280;
+      --pi: #fbbf24;
+      --cdata: #22d3ee;
+      --collapse-btn: #4b5563;
+      --collapse-btn-hover: #9ca3af;
+      --search-highlight: #854d0e;
+      --search-highlight-active: #ca8a04;
+      --shadow: 0 1px 3px rgba(0,0,0,0.4);
+      --tab-active-bg: #1a1a1a;
+      --tab-inactive-bg: #111;
+      --error: #f87171;
+      --success: #4ade80;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body { height: 100%; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100%;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ─────────────────────────────────────────── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: var(--shadow);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    header h1 {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      flex: 1;
+    }
+    header h1 span { color: var(--accent); }
+
+    .theme-toggle {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 6px 12px;
+      cursor: pointer;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.15s;
+    }
+    .theme-toggle:hover { background: var(--border); }
+
+    /* ── Main layout ─────────────────────────────────────── */
+    main {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      padding: 16px 20px;
+      gap: 10px;
+      max-width: 1400px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    /* ── Input panel ─────────────────────────────────────── */
+    .input-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      flex-shrink: 0;
+    }
+    .input-panel.collapsed .tabs,
+    .input-panel.collapsed .tab-content { display: none; }
+
+    /* ── Source bar (shown when input is collapsed) ──────── */
+    .source-bar {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 14px;
+      min-width: 0;
+    }
+    .input-panel.collapsed .source-bar { display: flex; }
+    .source-icon { font-size: 15px; flex-shrink: 0; }
+    .source-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 260px;
+    }
+    .source-sep { color: var(--border); font-size: 13px; flex-shrink: 0; }
+    .source-meta { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+    .source-spacer { flex: 1; }
+    .change-source-btn {
+      font-size: 12px;
+      padding: 4px 12px;
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text-muted);
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: all 0.15s;
+    }
+    .change-source-btn:hover { color: var(--text); border-color: var(--text-muted); }
+
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+    }
+    .tab {
+      padding: 10px 20px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-muted);
+      background: var(--tab-inactive-bg);
+      border: none;
+      border-right: 1px solid var(--border);
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .tab:last-child { border-right: none; }
+    .tab.active {
+      background: var(--tab-active-bg);
+      color: var(--accent);
+      border-bottom: 2px solid var(--accent);
+    }
+    .tab:not(.active):hover { color: var(--text); background: var(--surface2); }
+
+    .tab-content { display: none; padding: 16px; }
+    .tab-content.active { display: block; }
+
+    /* ── Upload tab ──────────────────────────────────────── */
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: 10px;
+      padding: 40px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+    }
+    .drop-zone:hover, .drop-zone.drag-over {
+      border-color: var(--accent);
+      background: color-mix(in srgb, var(--accent) 5%, transparent);
+    }
+    .drop-zone input[type=file] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+    .drop-zone-icon { font-size: 36px; margin-bottom: 10px; }
+    .drop-zone p { color: var(--text-muted); font-size: 14px; margin-top: 4px; }
+    .drop-zone strong { color: var(--text); }
+
+    /* ── Text tab ────────────────────────────────────────── */
+    .text-input-area {
+      width: 100%;
+      min-height: 140px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+      font-size: 13px;
+      color: var(--text);
+      resize: vertical;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .text-input-area:focus { border-color: var(--accent); }
+    .text-input-area::placeholder { color: var(--text-muted); }
+
+    /* ── URL tab ─────────────────────────────────────────── */
+    .url-row {
+      display: flex;
+      gap: 8px;
+    }
+    .url-input {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 14px;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .url-input:focus { border-color: var(--accent); }
+    .url-input::placeholder { color: var(--text-muted); }
+
+    .url-presets {
+      margin-top: 8px;
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .url-preset {
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: 99px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .url-preset:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ── Action row ──────────────────────────────────────── */
+    .action-row {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .btn {
+      padding: 8px 18px;
+      border-radius: 8px;
+      border: none;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-ghost {
+      background: var(--surface2);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { color: var(--text); border-color: var(--text-muted); }
+
+    /* ── Status bar ──────────────────────────────────────── */
+    #status-bar {
+      font-size: 13px;
+      padding: 8px 14px;
+      border-radius: 8px;
+      display: none;
+      align-items: center;
+      gap: 8px;
+    }
+    #status-bar.error { display: flex; background: color-mix(in srgb, var(--error) 12%, transparent); color: var(--error); border: 1px solid color-mix(in srgb, var(--error) 30%, transparent); }
+    #status-bar.info { display: flex; background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); }
+    #status-bar.success { display: flex; background: color-mix(in srgb, var(--success) 10%, transparent); color: var(--success); border: 1px solid color-mix(in srgb, var(--success) 25%, transparent); }
+
+    /* ── Viewer panel ────────────────────────────────────── */
+    .viewer-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      display: none;
+      flex-direction: column;
+      min-height: 0;
+    }
+    .viewer-panel.visible { display: flex; flex: 1; }
+
+    .viewer-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface2);
+      flex-wrap: wrap;
+    }
+    .viewer-toolbar-left { display: flex; gap: 6px; flex: 1; flex-wrap: wrap; }
+
+    .search-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 5px 10px;
+      flex: 1;
+      min-width: 200px;
+    }
+    .search-wrapper:focus-within { border-color: var(--accent); }
+    .search-input {
+      background: none;
+      border: none;
+      outline: none;
+      font-size: 13px;
+      color: var(--text);
+      flex: 1;
+      min-width: 80px;
+    }
+    .search-input::placeholder { color: var(--text-muted); }
+    .search-nav { display: flex; gap: 2px; }
+    .search-nav button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-muted);
+      font-size: 14px;
+      padding: 2px 4px;
+      border-radius: 4px;
+    }
+    .search-nav button:hover { color: var(--text); background: var(--surface2); }
+    #search-count { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+
+    .toolbar-btn {
+      padding: 5px 12px;
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text-muted);
+      font-size: 12px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .toolbar-btn:hover { color: var(--text); border-color: var(--text-muted); }
+
+    .xml-stats {
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      padding: 0 4px;
+    }
+
+    /* ── XML Tree ────────────────────────────────────────── */
+    .xml-viewer {
+      padding: 16px 20px;
+      overflow: auto;
+      flex: 1;
+      min-height: 0;
+      font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    .xml-node { position: relative; }
+
+    .xml-line {
+      display: flex;
+      align-items: flex-start;
+      white-space: pre;
+      border-radius: 4px;
+      padding: 0 4px;
+    }
+    .xml-line:hover { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+    .xml-line.search-match { background: var(--search-highlight); }
+    .xml-line.search-match-active { background: var(--search-highlight-active) !important; }
+
+    .indent { display: inline-block; }
+
+    .collapse-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 16px;
+      border: none;
+      background: none;
+      cursor: pointer;
+      color: var(--collapse-btn);
+      font-size: 10px;
+      border-radius: 3px;
+      flex-shrink: 0;
+      margin-right: 2px;
+      margin-top: 3px;
+      transition: color 0.1s;
+      user-select: none;
+    }
+    .collapse-btn:hover { color: var(--collapse-btn-hover); background: var(--surface2); }
+    .spacer-btn { display: inline-block; width: 18px; }
+
+    .tag-open { color: var(--tag); }
+    .tag-close { color: var(--tag); }
+    .attr-name { color: var(--attr-name); }
+    .attr-eq { color: var(--text-muted); }
+    .attr-value { color: var(--attr-value); }
+    .punctuation { color: var(--text-muted); }
+    .text-node { color: var(--text-node); }
+    .comment-node { color: var(--comment); font-style: italic; }
+    .pi-node { color: var(--pi); }
+    .cdata-node { color: var(--cdata); }
+
+    .xml-children { }
+    .xml-children.collapsed { display: none; }
+
+    .inline-ellipsis {
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 11px;
+    }
+    .inline-ellipsis:hover { color: var(--text); }
+
+    /* ── Path breadcrumb ─────────────────────────────────── */
+    .path-bar {
+      padding: 6px 16px;
+      border-top: 1px solid var(--border);
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: 'Menlo', 'Monaco', monospace;
+      background: var(--surface2);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .path-bar span { color: var(--accent); }
+
+    /* ── Empty state ─────────────────────────────────────── */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-muted);
+    }
+    .empty-state-icon { font-size: 48px; margin-bottom: 12px; }
+    .empty-state p { font-size: 14px; }
+
+    /* ── Loading spinner ─────────────────────────────────── */
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 600px) {
+      main { padding: 12px; }
+      .viewer-toolbar { flex-direction: column; align-items: stretch; }
+      .xml-viewer { font-size: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>XML <span>Inspector</span></h1>
+    <button class="theme-toggle" id="theme-toggle">🌙 Dark</button>
+  </header>
+
+  <main>
+    <!-- Input Panel -->
+    <div class="input-panel" id="input-panel">
+      <!-- Shown only when collapsed -->
+      <div class="source-bar" id="source-bar">
+        <span class="source-icon">📄</span>
+        <span class="source-name" id="source-name"></span>
+        <span class="source-sep">·</span>
+        <span class="source-meta" id="source-meta"></span>
+        <span class="source-spacer"></span>
+        <button class="change-source-btn" id="change-source-btn">↑ Change source</button>
+      </div>
+      <div class="tabs">
+        <button class="tab active" data-tab="upload">📁 Upload File</button>
+        <button class="tab" data-tab="text">📋 Paste XML</button>
+        <button class="tab" data-tab="url">🌐 Load URL</button>
+      </div>
+
+      <!-- Upload -->
+      <div class="tab-content active" id="tab-upload">
+        <div class="drop-zone" id="drop-zone">
+          <input type="file" id="file-input" accept=".xml,.rss,.atom,.svg,.xhtml,.xsl,.xslt,.opml" />
+          <div class="drop-zone-icon">📂</div>
+          <strong>Drop an XML file here</strong>
+          <p>or click to browse &mdash; XML, RSS, Atom, SVG, OPML supported</p>
+        </div>
+        <div class="action-row">
+          <button class="btn btn-ghost" id="clear-btn-upload">Clear</button>
+        </div>
+      </div>
+
+      <!-- Text -->
+      <div class="tab-content" id="tab-text">
+        <textarea class="text-input-area" id="text-input" placeholder="Paste your XML here…&#10;&#10;&lt;?xml version=&quot;1.0&quot;?&gt;&#10;&lt;root&gt;&#10;  &lt;item id=&quot;1&quot;&gt;Hello&lt;/item&gt;&#10;&lt;/root&gt;"></textarea>
+        <div class="action-row">
+          <button class="btn btn-ghost" id="clear-btn-text">Clear</button>
+          <button class="btn btn-primary" id="parse-text-btn">Parse XML →</button>
+        </div>
+      </div>
+
+      <!-- URL -->
+      <div class="tab-content" id="tab-url">
+        <div class="url-row">
+          <input type="url" class="url-input" id="url-input" placeholder="https://example.com/feed.rss" />
+          <button class="btn btn-primary" id="load-url-btn">Load →</button>
+        </div>
+        <div class="url-presets">
+          <span style="font-size:11px;color:var(--text-muted);margin-right:4px;">Try:</span>
+          <button class="url-preset" data-url="https://feeds.bbci.co.uk/news/rss.xml">BBC News RSS</button>
+          <button class="url-preset" data-url="https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml">NY Times RSS</button>
+          <button class="url-preset" data-url="https://www.nasa.gov/rss/dyn/breaking_news.rss">NASA News</button>
+        </div>
+        <div class="action-row">
+          <button class="btn btn-ghost" id="clear-btn-url">Clear</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status -->
+    <div id="status-bar"></div>
+
+    <!-- Viewer Panel -->
+    <div class="viewer-panel" id="viewer-panel">
+      <div class="viewer-toolbar">
+        <div class="viewer-toolbar-left">
+          <div class="search-wrapper">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--text-muted);flex-shrink:0"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input type="text" class="search-input" id="search-input" placeholder="Search tags, attributes, text…" />
+            <span id="search-count"></span>
+            <div class="search-nav">
+              <button id="search-prev" title="Previous match">▲</button>
+              <button id="search-next" title="Next match">▼</button>
+            </div>
+          </div>
+        </div>
+        <button class="toolbar-btn" id="expand-all">⊞ Expand all</button>
+        <button class="toolbar-btn" id="collapse-all">⊟ Collapse all</button>
+        <button class="toolbar-btn" id="copy-formatted">⎘ Copy</button>
+        <span class="xml-stats" id="xml-stats"></span>
+      </div>
+
+      <div class="xml-viewer" id="xml-viewer">
+        <div class="empty-state">
+          <div class="empty-state-icon">🗂️</div>
+          <p>Load an XML document to inspect it</p>
+        </div>
+      </div>
+
+      <div class="path-bar" id="path-bar">No node selected</div>
+    </div>
+  </main>
+
+  <script>
+  (() => {
+    // ── Theme ──────────────────────────────────────────────
+    const html = document.documentElement;
+    const themeBtn = document.getElementById('theme-toggle');
+    const saved = localStorage.getItem('xml-inspector-theme') || 'light';
+    setTheme(saved);
+
+    function setTheme(t) {
+      html.dataset.theme = t;
+      themeBtn.textContent = t === 'dark' ? '☀️ Light' : '🌙 Dark';
+      localStorage.setItem('xml-inspector-theme', t);
+    }
+    themeBtn.addEventListener('click', () => setTheme(html.dataset.theme === 'dark' ? 'light' : 'dark'));
+
+    // ── Tabs ───────────────────────────────────────────────
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+      });
+    });
+
+    // ── Status ─────────────────────────────────────────────
+    const statusBar = document.getElementById('status-bar');
+    function showStatus(msg, type = 'info') {
+      statusBar.textContent = msg;
+      statusBar.className = type;
+    }
+    function clearStatus() { statusBar.className = ''; }
+
+    // ── File Upload ────────────────────────────────────────
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      const file = e.dataTransfer.files[0];
+      if (file) handleFile(file);
+    });
+    fileInput.addEventListener('change', () => { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
+    document.getElementById('clear-btn-upload').addEventListener('click', () => { fileInput.value = ''; clearViewer(); });
+
+    function handleFile(file) {
+      if (!file.name.match(/\.(xml|rss|atom|svg|xhtml|xsl|xslt|opml)$/i) && file.type !== 'text/xml' && file.type !== 'application/xml') {
+        showStatus('Please upload an XML-based file (.xml, .rss, .atom, .svg, etc.)', 'error');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = e => parseAndRender(e.target.result, file.name);
+      reader.onerror = () => showStatus('Failed to read file', 'error');
+      reader.readAsText(file);
+    }
+
+    // ── Text Paste ─────────────────────────────────────────
+    const textInput = document.getElementById('text-input');
+    document.getElementById('parse-text-btn').addEventListener('click', () => {
+      const val = textInput.value.trim();
+      if (!val) { showStatus('Please paste some XML first', 'error'); return; }
+      parseAndRender(val, 'pasted.xml');
+    });
+    document.getElementById('clear-btn-text').addEventListener('click', () => { textInput.value = ''; clearViewer(); });
+
+    // Auto-parse after a pause
+    let textTimer;
+    textInput.addEventListener('input', () => {
+      clearTimeout(textTimer);
+      if (textInput.value.trim().length > 10) {
+        textTimer = setTimeout(() => parseAndRender(textInput.value.trim(), 'pasted.xml'), 800);
+      }
+    });
+
+    // ── URL Load ───────────────────────────────────────────
+    const urlInput = document.getElementById('url-input');
+    document.getElementById('load-url-btn').addEventListener('click', () => loadUrl());
+    urlInput.addEventListener('keydown', e => { if (e.key === 'Enter') loadUrl(); });
+    document.getElementById('clear-btn-url').addEventListener('click', () => { urlInput.value = ''; clearViewer(); });
+
+    document.querySelectorAll('.url-preset').forEach(btn => {
+      btn.addEventListener('click', () => { urlInput.value = btn.dataset.url; loadUrl(); });
+    });
+
+    async function loadUrl() {
+      const url = urlInput.value.trim();
+      if (!url) { showStatus('Please enter a URL', 'error'); return; }
+      showStatus('⏳ Loading…', 'info');
+
+      const encoded = encodeURIComponent(url);
+      const proxies = [
+        // direct (works when server allows CORS)
+        async () => {
+          const res = await fetch(url, { signal: AbortSignal.timeout(7000) });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.text();
+        },
+        // corsproxy.io — passes browser User-Agent through; works for most sites
+        async () => {
+          const res = await fetch(`https://corsproxy.io/?url=${encoded}`, { signal: AbortSignal.timeout(12000) });
+          if (!res.ok) throw new Error(`corsproxy HTTP ${res.status}`);
+          return res.text();
+        },
+        // allorigins — JSON wrapper fallback
+        async () => {
+          const res = await fetch(`https://api.allorigins.win/get?url=${encoded}`, { signal: AbortSignal.timeout(14000) });
+          if (!res.ok) throw new Error(`allorigins HTTP ${res.status}`);
+          const json = await res.json();
+          if (!json.contents) throw new Error('empty response from proxy');
+          return json.contents;
+        },
+      ];
+
+      let lastErr;
+      for (const attempt of proxies) {
+        try {
+          const text = await attempt();
+          if (looksLikeHtml(text)) {
+            throw new Error('html-page');
+          }
+          parseAndRender(text, url.split('/').pop() || 'feed.xml');
+          return;
+        } catch (err) {
+          lastErr = err;
+        }
+      }
+
+      const isHtmlErr = lastErr.message === 'html-page';
+      showStatus(
+        isHtmlErr
+          ? 'The server returned an HTML page instead of XML — it may require authentication or is blocking automated requests. Try downloading the file and using "Upload File" instead.'
+          : `Failed to load URL: ${lastErr.message}. Try downloading the file and using "Upload File" instead.`,
+        'error'
+      );
+    }
+
+    function looksLikeHtml(text) {
+      // Strip BOM and leading whitespace, then check case-insensitively
+      const t = text.replace(/^﻿/, '').trimStart().toLowerCase();
+      if (t.startsWith('<!doctype html')) return true;
+      if (t.startsWith('<html')) return true;
+      // Catch bare HTML without a doctype (e.g. BSE error pages starting with <HTML>)
+      if (/^<(head|body|p|div|table|span|script|meta|link)[\s>]/i.test(t)) return true;
+      return false;
+    }
+
+    // ── Parse & Render ─────────────────────────────────────
+    function parseAndRender(xmlString, filename) {
+      clearStatus();
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(xmlString, 'application/xml');
+      const parseError = doc.querySelector('parsererror');
+      if (parseError) {
+        const errText = parseError.textContent;
+        // If the parser choked on HTML tags, give a friendlier message
+        const isHtmlInXml = /tag mismatch|undefined entity/i.test(errText) &&
+                            /\b(html|body|head|p|div|span|script|table)\b/i.test(errText);
+        showStatus(
+          isHtmlInXml
+            ? 'The server returned an HTML page instead of XML. Try downloading the file and uploading it directly.'
+            : `XML parse error: ${errText.split('\n').find(l => l.trim()) || errText}`,
+          'error'
+        );
+        return;
+      }
+
+      const viewer = document.getElementById('xml-viewer');
+      viewer.innerHTML = '';
+      const stats = collectStats(doc);
+      document.getElementById('xml-stats').textContent = `${stats.elements} elements · ${stats.attrs} attrs · ${filename}`;
+
+      renderNode(doc, viewer, 0);
+
+      document.getElementById('viewer-panel').classList.add('visible');
+      collapseInput(filename, `${stats.elements} elements · ${stats.attrs} attrs`);
+      showStatus(`Loaded ${filename} successfully — ${stats.elements} elements`, 'success');
+      setTimeout(clearStatus, 3000);
+      resetSearch();
+    }
+
+    function collapseInput(filename, meta) {
+      document.getElementById('source-name').textContent = filename;
+      document.getElementById('source-meta').textContent = meta;
+      document.getElementById('input-panel').classList.add('collapsed');
+    }
+
+    function expandInput() {
+      document.getElementById('input-panel').classList.remove('collapsed');
+    }
+
+    document.getElementById('change-source-btn').addEventListener('click', expandInput);
+
+    function clearViewer() {
+      document.getElementById('viewer-panel').classList.remove('visible');
+      document.getElementById('xml-viewer').innerHTML = '';
+      document.getElementById('xml-stats').textContent = '';
+      expandInput();
+      clearStatus();
+      resetSearch();
+    }
+
+    function collectStats(doc) {
+      let elements = 0, attrs = 0;
+      function walk(n) {
+        if (n.nodeType === Node.ELEMENT_NODE) {
+          elements++;
+          attrs += n.attributes.length;
+        }
+        for (const c of n.childNodes) walk(c);
+      }
+      walk(doc);
+      return { elements, attrs };
+    }
+
+    // ── XML Rendering ──────────────────────────────────────
+    function renderNode(node, container, depth) {
+      switch (node.nodeType) {
+        case Node.DOCUMENT_NODE:
+          for (const child of node.childNodes) renderNode(child, container, depth);
+          break;
+        case Node.PROCESSING_INSTRUCTION_NODE:
+          renderPI(node, container, depth);
+          break;
+        case Node.COMMENT_NODE:
+          renderComment(node, container, depth);
+          break;
+        case Node.CDATA_SECTION_NODE:
+          renderCdata(node, container, depth);
+          break;
+        case Node.TEXT_NODE: {
+          const txt = node.nodeValue.replace(/^\s+|\s+$/g, '');
+          if (txt) renderText(txt, container, depth);
+          break;
+        }
+        case Node.ELEMENT_NODE:
+          renderElement(node, container, depth);
+          break;
+      }
+    }
+
+    function indentStr(depth) {
+      return '  '.repeat(depth);
+    }
+
+    function makeIndent(depth) {
+      const span = document.createElement('span');
+      span.className = 'indent';
+      span.textContent = indentStr(depth);
+      return span;
+    }
+
+    function renderPI(node, container, depth) {
+      const wrap = document.createElement('div');
+      wrap.className = 'xml-node';
+      const line = document.createElement('div');
+      line.className = 'xml-line';
+      line.appendChild(makeIndent(depth));
+      const spacer = document.createElement('span');
+      spacer.className = 'spacer-btn';
+      line.appendChild(spacer);
+      const content = document.createElement('span');
+      content.className = 'pi-node';
+      content.textContent = `<?${node.nodeName} ${node.nodeValue}?>`;
+      line.appendChild(content);
+      wrap.appendChild(line);
+      container.appendChild(wrap);
+      addHoverPath(line, `?${node.nodeName}`);
+    }
+
+    function renderComment(node, container, depth) {
+      const wrap = document.createElement('div');
+      wrap.className = 'xml-node';
+      const lines = node.nodeValue.split('\n');
+      lines.forEach((l, i) => {
+        const line = document.createElement('div');
+        line.className = 'xml-line';
+        line.appendChild(makeIndent(depth));
+        const spacer = document.createElement('span');
+        spacer.className = 'spacer-btn';
+        line.appendChild(spacer);
+        const content = document.createElement('span');
+        content.className = 'comment-node';
+        content.textContent = i === 0 ? `<!-- ${l}` : (i === lines.length - 1 ? `     ${l} -->` : `     ${l}`);
+        line.appendChild(content);
+        wrap.appendChild(line);
+      });
+      if (lines.length === 1) {
+        const firstLine = wrap.querySelector('.xml-line');
+        const c = firstLine.querySelector('.comment-node');
+        c.textContent = `<!-- ${lines[0]} -->`;
+      }
+      container.appendChild(wrap);
+    }
+
+    function renderCdata(node, container, depth) {
+      const wrap = document.createElement('div');
+      wrap.className = 'xml-node';
+      ['<![CDATA[', node.nodeValue.trim(), ']]>'].forEach(txt => {
+        const line = document.createElement('div');
+        line.className = 'xml-line';
+        line.appendChild(makeIndent(depth));
+        const spacer = document.createElement('span');
+        spacer.className = 'spacer-btn';
+        line.appendChild(spacer);
+        const content = document.createElement('span');
+        content.className = 'cdata-node';
+        content.textContent = txt;
+        line.appendChild(content);
+        wrap.appendChild(line);
+      });
+      container.appendChild(wrap);
+    }
+
+    function renderText(txt, container, depth) {
+      const wrap = document.createElement('div');
+      wrap.className = 'xml-node';
+      const line = document.createElement('div');
+      line.className = 'xml-line';
+      line.appendChild(makeIndent(depth));
+      const spacer = document.createElement('span');
+      spacer.className = 'spacer-btn';
+      line.appendChild(spacer);
+      const content = document.createElement('span');
+      content.className = 'text-node';
+      content.textContent = txt;
+      line.appendChild(content);
+      wrap.appendChild(line);
+      container.appendChild(wrap);
+    }
+
+    function getChildElements(node) {
+      return Array.from(node.childNodes).filter(n =>
+        n.nodeType === Node.ELEMENT_NODE ||
+        n.nodeType === Node.COMMENT_NODE ||
+        n.nodeType === Node.CDATA_SECTION_NODE ||
+        (n.nodeType === Node.TEXT_NODE && n.nodeValue.replace(/^\s+|\s+$/g,''))
+      );
+    }
+
+    function renderElement(node, container, depth) {
+      const wrap = document.createElement('div');
+      wrap.className = 'xml-node';
+      wrap.dataset.tag = node.nodeName;
+
+      const children = getChildElements(node);
+      const hasChildren = children.length > 0;
+
+      // Opening line
+      const openLine = document.createElement('div');
+      openLine.className = 'xml-line';
+
+      // Indent
+      openLine.appendChild(makeIndent(depth));
+
+      // Collapse button or spacer
+      if (hasChildren) {
+        const colBtn = document.createElement('button');
+        colBtn.className = 'collapse-btn';
+        colBtn.title = 'Collapse/expand';
+        colBtn.textContent = '▼';
+        colBtn.addEventListener('click', e => {
+          e.stopPropagation();
+          toggleCollapse(wrap, colBtn);
+        });
+        openLine.appendChild(colBtn);
+      } else {
+        const spacer = document.createElement('span');
+        spacer.className = 'spacer-btn';
+        openLine.appendChild(spacer);
+      }
+
+      // <tagName
+      const tagOpen = document.createElement('span');
+      tagOpen.className = 'tag-open punctuation';
+      tagOpen.innerHTML = `<span class="punctuation">&lt;</span><span class="tag-open">${escHtml(node.nodeName)}</span>`;
+      openLine.appendChild(tagOpen);
+
+      // Attributes
+      for (const attr of node.attributes) {
+        openLine.appendChild(makeAttr(attr));
+      }
+
+      // Self-closing or children
+      if (!hasChildren) {
+        const close = document.createElement('span');
+        close.className = 'punctuation';
+        close.textContent = ' />';
+        openLine.appendChild(close);
+      } else {
+        const close = document.createElement('span');
+        close.className = 'punctuation';
+        close.textContent = '>';
+        openLine.appendChild(close);
+      }
+
+      wrap.appendChild(openLine);
+      addHoverPath(openLine, node, depth);
+
+      if (hasChildren) {
+        const childContainer = document.createElement('div');
+        childContainer.className = 'xml-children';
+
+        for (const child of children) {
+          renderNode(child, childContainer, depth + 1);
+        }
+
+        // Closing tag line
+        const closeLine = document.createElement('div');
+        closeLine.className = 'xml-line';
+        closeLine.appendChild(makeIndent(depth));
+        const spacer2 = document.createElement('span');
+        spacer2.className = 'spacer-btn';
+        closeLine.appendChild(spacer2);
+        const closeTag = document.createElement('span');
+        closeTag.innerHTML = `<span class="punctuation">&lt;/</span><span class="tag-close">${escHtml(node.nodeName)}</span><span class="punctuation">&gt;</span>`;
+        closeLine.appendChild(closeTag);
+        addHoverPath(closeLine, node, depth);
+
+        wrap.appendChild(childContainer);
+        wrap.appendChild(closeLine);
+      }
+
+      container.appendChild(wrap);
+    }
+
+    function makeAttr(attr) {
+      const span = document.createElement('span');
+      const name = document.createElement('span');
+      name.className = 'attr-name';
+      name.textContent = ' ' + attr.name;
+      const eq = document.createElement('span');
+      eq.className = 'attr-eq';
+      eq.textContent = '=';
+      const val = document.createElement('span');
+      val.className = 'attr-value';
+      val.textContent = `"${attr.value}"`;
+      span.appendChild(name);
+      span.appendChild(eq);
+      span.appendChild(val);
+      return span;
+    }
+
+    function escHtml(str) {
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // ── Collapse / Expand ──────────────────────────────────
+    function toggleCollapse(wrap, btn) {
+      const children = wrap.querySelector('.xml-children');
+      if (!children) return;
+      const isCollapsed = children.classList.contains('collapsed');
+      if (isCollapsed) {
+        children.classList.remove('collapsed');
+        btn.textContent = '▼';
+        // remove ellipsis
+        const el = wrap.querySelector('.inline-ellipsis');
+        if (el) el.remove();
+        const closeLine = wrap.lastElementChild;
+        if (closeLine && closeLine !== children) closeLine.style.display = '';
+      } else {
+        children.classList.add('collapsed');
+        btn.textContent = '▶';
+        // hide close tag
+        const closeLine = wrap.lastElementChild;
+        if (closeLine && closeLine !== children) closeLine.style.display = 'none';
+        // add ellipsis after opening tag
+        const openLine = wrap.firstElementChild;
+        let ellipsis = wrap.querySelector('.inline-ellipsis');
+        if (!ellipsis) {
+          ellipsis = document.createElement('span');
+          ellipsis.className = 'inline-ellipsis';
+          ellipsis.textContent = ' …';
+          ellipsis.title = 'Click to expand';
+          ellipsis.addEventListener('click', () => toggleCollapse(wrap, btn));
+          openLine.appendChild(ellipsis);
+        }
+      }
+    }
+
+    document.getElementById('expand-all').addEventListener('click', () => {
+      document.querySelectorAll('.xml-children.collapsed').forEach(c => {
+        const wrap = c.parentElement;
+        const btn = wrap.querySelector('.collapse-btn');
+        if (btn) toggleCollapse(wrap, btn);
+      });
+    });
+
+    document.getElementById('collapse-all').addEventListener('click', () => {
+      // Only collapse top-level children
+      document.querySelectorAll('#xml-viewer > .xml-node .xml-children:not(.collapsed)').forEach(c => {
+        const wrap = c.parentElement;
+        const btn = wrap.querySelector('.collapse-btn');
+        if (btn) toggleCollapse(wrap, btn);
+      });
+    });
+
+    // ── Path breadcrumb ────────────────────────────────────
+    const pathBar = document.getElementById('path-bar');
+
+    function addHoverPath(line, node, depth) {
+      line.addEventListener('mouseenter', () => {
+        if (typeof node === 'string') {
+          pathBar.textContent = node;
+          return;
+        }
+        const path = getXPath(node);
+        pathBar.innerHTML = path.map((p, i) =>
+          i < path.length - 1
+            ? `${escHtml(p)} <span>›</span> `
+            : `<span>${escHtml(p)}</span>`
+        ).join('');
+      });
+    }
+
+    function getXPath(node) {
+      const parts = [];
+      let cur = node;
+      while (cur && cur.nodeType === Node.ELEMENT_NODE) {
+        let part = cur.nodeName;
+        const parent = cur.parentNode;
+        if (parent) {
+          const siblings = Array.from(parent.childNodes).filter(n => n.nodeType === Node.ELEMENT_NODE && n.nodeName === cur.nodeName);
+          if (siblings.length > 1) {
+            const idx = siblings.indexOf(cur) + 1;
+            part += `[${idx}]`;
+          }
+        }
+        parts.unshift(part);
+        cur = cur.parentNode;
+      }
+      return parts.length ? parts : [node];
+    }
+
+    // ── Search ─────────────────────────────────────────────
+    let searchMatches = [];
+    let searchIndex = -1;
+
+    const searchInput = document.getElementById('search-input');
+    const searchCount = document.getElementById('search-count');
+
+    searchInput.addEventListener('input', () => {
+      clearTimeout(searchInput._timer);
+      searchInput._timer = setTimeout(doSearch, 200);
+    });
+    document.getElementById('search-next').addEventListener('click', () => navigateSearch(1));
+    document.getElementById('search-prev').addEventListener('click', () => navigateSearch(-1));
+    searchInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') navigateSearch(e.shiftKey ? -1 : 1);
+    });
+
+    function resetSearch() {
+      searchInput.value = '';
+      searchCount.textContent = '';
+      searchMatches = [];
+      searchIndex = -1;
+    }
+
+    function doSearch() {
+      // clear old
+      document.querySelectorAll('.xml-line.search-match, .xml-line.search-match-active').forEach(el => {
+        el.classList.remove('search-match', 'search-match-active');
+      });
+      searchMatches = [];
+      searchIndex = -1;
+      const q = searchInput.value.trim().toLowerCase();
+      if (!q) { searchCount.textContent = ''; return; }
+
+      document.querySelectorAll('.xml-line').forEach(line => {
+        if (line.textContent.toLowerCase().includes(q)) {
+          line.classList.add('search-match');
+          searchMatches.push(line);
+        }
+      });
+
+      searchCount.textContent = searchMatches.length ? `${searchMatches.length} matches` : 'No matches';
+      if (searchMatches.length) navigateSearch(1);
+    }
+
+    function navigateSearch(dir) {
+      if (!searchMatches.length) return;
+      if (searchIndex >= 0) searchMatches[searchIndex].classList.remove('search-match-active');
+      searchIndex = (searchIndex + dir + searchMatches.length) % searchMatches.length;
+      const active = searchMatches[searchIndex];
+      active.classList.add('search-match-active');
+      // expand parents if collapsed
+      let p = active.parentElement;
+      while (p && p.id !== 'xml-viewer') {
+        if (p.classList.contains('xml-children') && p.classList.contains('collapsed')) {
+          const wrap = p.parentElement;
+          const btn = wrap.querySelector('.collapse-btn');
+          if (btn) toggleCollapse(wrap, btn);
+        }
+        p = p.parentElement;
+      }
+      active.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      searchCount.textContent = `${searchIndex + 1} / ${searchMatches.length}`;
+    }
+
+    // ── Copy ───────────────────────────────────────────────
+    document.getElementById('copy-formatted').addEventListener('click', () => {
+      const text = document.getElementById('xml-viewer').innerText;
+      navigator.clipboard.writeText(text).then(() => {
+        showStatus('Copied to clipboard', 'success');
+        setTimeout(clearStatus, 2000);
+      });
+    });
+
+  })();
+  </script>
+</body>
+</html>
